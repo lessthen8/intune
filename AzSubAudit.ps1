@@ -1,3 +1,12 @@
+# Check for dependencies and install them if they are not found
+$dependencies = @("Az.Accounts", "Az.Consumption")
+foreach ($dependency in $dependencies) {
+    if (-not (Get-Module -Name $dependency -ListAvailable)) {
+        Write-Host "Installing $dependency module..."
+        Install-Module -Name $dependency -Scope CurrentUser -Force
+    }
+}
+
 # Connect to Azure
 Connect-AzAccount
 
@@ -19,21 +28,19 @@ foreach ($subscription in $subscriptions) {
     $owners = Get-AzRoleAssignment -Scope "/subscriptions/$($subscription.Id)" -RoleDefinitionName "Owner"
     $classicAdmins = Get-AzureRmRoleAssignment -Scope "/subscriptions/$($subscription.Id)" -RoleDefinitionName "Classic Administrator"
 
-    # Create a custom object to hold the subscription details, owners, and classic administrators
+    # Get the cost in the past 30 days
+    $startDate = (Get-Date).AddDays(-30).ToString("yyyy-MM-dd")
+    $endDate = (Get-Date).ToString("yyyy-MM-dd")
+    $cost = Get-AzConsumptionUsageDetail -StartDate $startDate -EndDate $endDate -BillingPeriodName "default" | Measure-Object -Property PretaxCost -Sum | Select-Object -ExpandProperty Sum
+
+    # Create a custom object to hold the subscription details, owners, classic administrators, and cost in the past 30 days
     $subscriptionObject = New-Object PSObject
     $subscriptionObject | Add-Member -MemberType NoteProperty -Name "Subscription Name" -Value $subscriptionDetails.Name
     $subscriptionObject | Add-Member -MemberType NoteProperty -Name "Subscription ID" -Value $subscriptionDetails.Id
     $subscriptionObject | Add-Member -MemberType NoteProperty -Name "Subscription State" -Value $subscriptionDetails.State
-    $ownersString = ""
-    foreach ($owner in $owners) {
-        $ownersString += "$($owner.DisplayName) ($($owner.SignInName)); "
-    }
-    $subscriptionObject | Add-Member -MemberType NoteProperty -Name "Subscription Owners" -Value $ownersString
-    $classicAdminsString = ""
-    foreach ($classicAdmin in $classicAdmins) {
-        $classicAdminsString += "$($classicAdmin.DisplayName) ($($classicAdmin.SignInName)); "
-    }
-    $subscriptionObject | Add-Member -MemberType NoteProperty -Name "Subscription Classic Administrators" -Value $classicAdminsString
+    $subscriptionObject | Add-Member -MemberType NoteProperty -Name "Subscription Owners" -Value ($owners | ForEach-Object { "$($_.DisplayName) ($($_.SignInName))" })
+    $subscriptionObject | Add-Member -MemberType NoteProperty -Name "Subscription Classic Administrators" -Value ($classicAdmins | ForEach-Object { "$($_.DisplayName) ($($_.SignInName))" })
+    $subscriptionObject | Add-Member -MemberType NoteProperty -Name "Cost in past 30 days" -Value $cost
 
     # Add the subscription object to the array
     $subscriptionDetailsArray += $subscriptionObject
