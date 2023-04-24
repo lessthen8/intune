@@ -3,28 +3,44 @@
 ################
 # Intune Distribution
 
+### Standard deployment Template - IV Updated 4/2023 ###
 # Set the execution policy to allow the script to run
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope CurrentUser -Force
-
-# Check if the script is running with administrator privileges
-#$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
-
-# If the script is not running with administrator privileges, relaunch it with the "RunAs" verb
-#if (-not $isAdmin) {
-#Start-Process powershell.exe "-ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs -PassThru
-#exit
-#}
-
+#MakeAdmin
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))  
 {  
  $arguments = "& '" +$myinvocation.mycommand.definition + "'"
   Start-Process powershell -Verb runAs -ArgumentList $arguments
   Break
 }
-
 #start logging now after console is admin
 $log = "C:\temp\FalconUnininstallLog.txt"
 start-transcript -Path $log -force -Verbose
+### END TEMPLATE ###
+
+# Download the file and save it to the specified location
+$downloadUrl = "https://ftp.empirix.com/?u=qpTBdT&p=8NpRpf&path=/CsUninstallTool.exe"
+$outputPath = "C:\temp\intune\CS\CsUninstallTool.exe"
+Write-Verbose "Downloading file from $downloadUrl to $outputPath"
+Invoke-WebRequest -Uri $downloadUrl -OutFile $outputPath
+
+# Run the downloaded application silently with administrator privileges and /quiet flag
+$csUninstallToolPath = $outputPath
+$csarguments = "/quiet"
+Write-Verbose "Running CsUninstallTool.exe with arguments: $csarguments"
+Start-Process -FilePath $csUninstallToolPath -ArgumentList $csarguments -Wait -Verb RunAs
+
+# Check if the application is removed from the default install path
+$defaultInstallPath = "C:\ProgramData\Package Cache\"
+$searchPattern = "WindowsSensor"
+$installedAppPath = Get-ChildItem -Path $defaultInstallPath -Filter $searchPattern -Recurse -ErrorAction SilentlyContinue
+if ($installedAppPath) {
+    Write-Error "Error: WindowsSensor is still present in the default install path"
+} else {
+    Write-Verbose "WindowsSensor successfully removed from the default install path"
+}
+
+#Begin backup removal method
 
 # Display all installed applications and their Uninstallstring
 Write-Verbose "Getting list of installed applications..."
@@ -38,14 +54,12 @@ $uninstall32 = Get-ChildItem "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\Curre
 ForEach-Object { Get-ItemProperty $_.PSPath } |
 Where-Object { $_.Publisher -like "Crowdstrike*" } |
 Select-Object UninstallString 
-
 $uninstall64 = Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" | 
 ForEach-Object { Get-ItemProperty $_.PSPath } |
 Where-Object { $_.Publisher -like "Crowdstrike*" } |
 Select-Object UninstallString 
 
 #Start on each one, storing in an array and action on each, waiting for each unininstall to finish
- 
 foreach ($uninstall in $uninstall64) {
     #for uninstall64 MSI exec is used, remove the defined flags so we can call a process and supply our own
         $guid = $uninstall.UninstallString -replace 'msiexec.exe', '' -replace '/I', '/X'
@@ -85,7 +99,7 @@ foreach ($uninstall in $uninstall64) {
     $cim = Get-CimInstance -ClassName Win32_Product -Filter "Name Like 'Crowdstrike%'"
     foreach ($IdentifyingNumber in $cim.IdentifyingNumber) {
         Write-Verbose "Uninstalling CrowdStrike using CIM..."
-        Start-Process "msiexec.exe" -ArgumentList "/X /Q /P $IdentifyingNumber /quiet" -Wait
+        Start-Process "msiexec.exe" -ArgumentList "/X $IdentifyingNumber /quiet" -Wait
         if ($process.ExitCode -ne 0) {
             Write-Error "Error: Uninstall failed with exit code $($process.ExitCode)"
             exit 1 
