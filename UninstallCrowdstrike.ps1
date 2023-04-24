@@ -57,7 +57,7 @@ foreach ($uninstall in $uninstall64) {
         } else {
             Write-Host "Uninstalling 64bit"
             #Run quiet on the guid of app matching publisher
-            Start-Process$ -FilePath "MsiExec.exe" -ArgumentList "$guid /quiet" -Wait -Verbose
+            Start-Process$ -FilePath "MsiExec.exe" -ArgumentList "/X" "$guid" -Wait -Verbose
             if ($process.ExitCode -ne 0) {
                 #write error for intune to track
                 Write-error "Error: a 64 bit Uninstall failed with exit code $($process.ExitCode)"
