@@ -1,6 +1,6 @@
 # Information and Variables
 $script_name = "Script: IV_MIS_Force_to_stay_win10"
-$script_creator = "Powershell script created by Danesh Lanza"
+$script_creator = "Powershell script created by Danesh Lanza, Corey Hudson"
 $script_version = "Version 0.1.1 - Last edit at: 2022-04-14 13:30 CET"
 $logs_file = "$env:windir\..\ProgramData\IV_MIS\logs.txt"
 
