@@ -21,6 +21,14 @@ start-transcript -Path $log -force -Verbose
 $csAgentStatus = sc.exe query csagent
 Write-Host $csAgentStatus
 
+# Prompt the user to choose an option
+$choice = Read-Host "Choose an method:`n1. CS Uninstaller`n2. Custom Uninstaller"
+
+# Execute the code for the chosen option
+if ($choice -eq "1") {
+  # Code for Option 1
+  Write-Host "Running Crowdstrike Uninstaller"
+
 # Download the file and save it to the specified location
 $downloadUrl = "https://ftp.empirix.com/?u=qpTBdT&p=8NpRpf&path=/CsUninstallTool.exe"
 $outputPath = "C:\temp\intune\CS\CsUninstallTool.exe"
@@ -32,6 +40,7 @@ Invoke-WebRequest -Uri $downloadUrl -OutFile $outputPath
 $csarguments = "/uninstall"
 Write-Verbose "1/4 Running CsUninstallTool.exe with arguments: $csarguments"
 Start-Process -FilePath $outputPath -ArgumentList $csarguments -Wait 
+Start-Sleep -Seconds 10
 
 # Check if the application is removed from the default install path
 $defaultInstallPath = "C:\ProgramData\Package Cache\"
@@ -42,6 +51,10 @@ if ($installedAppPath) {
 } else {
         Write-Verbose "WindowsSensor successfully removed from the default install path"
 }
+
+} elseif ($choice -eq "2") {
+  # Code for Option 2
+  Write-Host "Running Custom uninstaller"
 
 #Begin backup removal method
 
@@ -74,7 +87,7 @@ if ($installedAppPath) {
             } else {
                 Write-Host "2/4 Uninstalling 64bit using MSIExec"
                 #Run quiet on the guid of app matching publisher
-                Start-Process -FilePath "MsiExec.exe" -ArgumentList "/uninstall $guid" -Wait -Verbose
+                Start-Process -FilePath "MsiExec.exe" -ArgumentList "/x$guid" -Wait -Verbose
                 if ($process.ExitCode -ne 0) {
                     #write error for intune to track
                     Write-error "Error: a 64 bit Uninstall failed with exit code $($process.ExitCode)"
@@ -89,7 +102,7 @@ if ($installedAppPath) {
                 Write-Information "32 Bit not installed/detected"
             } else {
                 Write-Host " 3/4 Uninstalling 32bit $uninstall32exe at path $uninstall32path"
-              Start-Process $uninstall32exe -ArgumentList "/uninstall /passive" -WorkingDirectory $uninstall32Path -verbose -wait
+              Start-Process $uninstall32exe -ArgumentList "/repair /uninstall" -WorkingDirectory $uninstall32Path -verbose -wait
                 if ($process.ExitCode -ne 0) {
                     #write error for intune to track
                     Write-error "Error: 32bit Uninstall failed with exit code, might not be installed $($process.ExitCode)"
@@ -109,4 +122,10 @@ if ($installedAppPath) {
             }
         }
 
-Stop-Transcript
+} else {
+  # Handle invalid input
+  Write-warning "Invalid input. Please choose 1 or 2."
+}
+
+
+
