@@ -30,7 +30,7 @@ Invoke-WebRequest -Uri $downloadUrl -OutFile $outputPath
 
 # Run the downloaded application silently with administrator privileges and /quiet flag
 $csarguments = "/uninstall"
-Write-Verbose "Running CsUninstallTool.exe with arguments: $csarguments"
+Write-Verbose "1/4 Running CsUninstallTool.exe with arguments: $csarguments"
 Start-Process -FilePath $outputPath -ArgumentList $csarguments -Wait 
 
 # Check if the application is removed from the default install path
@@ -38,7 +38,7 @@ $defaultInstallPath = "C:\ProgramData\Package Cache\"
 $searchPattern = "WindowsSensor"
 $installedAppPath = Get-ChildItem -Path $defaultInstallPath -Filter $searchPattern -Recurse -ErrorAction SilentlyContinue
 if ($installedAppPath) {
-    Write-Error "Error: WindowsSensor is still present in the default install path"
+    Write-Error "Error: WindowsSensor is still present in the default install path" 
 } else {
         Write-Verbose "WindowsSensor successfully removed from the default install path"
 }
@@ -72,7 +72,7 @@ if ($installedAppPath) {
             if ([string]::IsNullOrWhiteSpace($guid)) {
                 Write-Error "Error: Could not determine guid in: $guid"
             } else {
-                Write-Host "Uninstalling 64bit"
+                Write-Host "2/4 Uninstalling 64bit using MSIExec"
                 #Run quiet on the guid of app matching publisher
                 Start-Process -FilePath "MsiExec.exe" -ArgumentList "/uninstall $guid" -Wait -Verbose
                 if ($process.ExitCode -ne 0) {
@@ -88,7 +88,7 @@ if ($installedAppPath) {
             if ([string]::IsNullOrWhiteSpace($uninstall32Path)) {
                 Write-Information "32 Bit not installed/detected"
             } else {
-                Write-Host "32bit uninstaller $uninstall32exe at path $uninstall32path"
+                Write-Host " 3/4 Uninstalling 32bit $uninstall32exe at path $uninstall32path"
               Start-Process $uninstall32exe -ArgumentList "/uninstall /passive" -WorkingDirectory $uninstall32Path -verbose -wait
                 if ($process.ExitCode -ne 0) {
                     #write error for intune to track
@@ -98,10 +98,10 @@ if ($installedAppPath) {
     }
 
     #Failover
-        Write-Host "Hmm... Didn't find CrowdStrike in the registry, trying another method"
+        Write-Host "Attempting Method CIM"
         $cim = Get-CimInstance -ClassName Win32_Product -Filter "Name Like 'Crowdstrike%'"
         foreach ($IdentifyingNumber in $cim.IdentifyingNumber) {
-            Write-Verbose "Uninstalling CrowdStrike using CIM..."
+            Write-Verbose "4/4 Uninstalling CrowdStrike using CIM..."
             Start-Process "msiexec.exe" -ArgumentList "/x $IdentifyingNumber /quiet" -Wait
             if ($process.ExitCode -ne 0) {
                 Write-Error "Error: Uninstall failed with exit code $($process.ExitCode)"
