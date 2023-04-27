@@ -22,7 +22,7 @@ $csAgentStatus = sc.exe query csagent
 Write-Host $csAgentStatus
 
 # Download the file and save it to the specified location
-$downloadUrl = "https://ftp.empirix.com/?u=qpTBdT&p=8NpRpf&path=/CsUninstallTool.exe"
+$downloadUrl = "https://ftp.empirix.com/?u=zTpvPz&p=mGAnan&path=/CsUninstallTool.exe"
 $outputPath = "C:\temp\intune\CS\CsUninstallTool.exe"
 New-Item -ItemType Directory -Path (Split-Path $outputPath) -Force | Out-Null
 Write-Verbose "Downloading file from $downloadUrl to $outputPath"
